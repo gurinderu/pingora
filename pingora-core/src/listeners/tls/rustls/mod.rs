@@ -19,6 +19,7 @@ use crate::protocols::tls::{server::handshake, server::handshake_with_callback, 
 use log::debug;
 use pingora_error::ErrorType::InternalError;
 use pingora_error::{Error, OrErr, Result};
+use pingora_rustls::load_certs;
 use pingora_rustls::load_certs_and_key_files;
 use pingora_rustls::ServerConfig;
 use pingora_rustls::{version, TlsAcceptor as RusTlsAcceptor};
@@ -30,6 +31,7 @@ pub struct TlsSettings {
     alpn_protocols: Option<Vec<Vec<u8>>>,
     cert_path: String,
     key_path: String,
+    root_cert_path: Option<String>,
 }
 
 pub struct Acceptor {
@@ -54,15 +56,35 @@ impl TlsSettings {
             )
         };
 
-        // TODO - Add support for client auth & custom CA support
-        let mut config =
-            ServerConfig::builder_with_protocol_versions(&[&version::TLS12, &version::TLS13])
-                .with_no_client_auth()
-                .with_single_cert(certs, key)
-                .explain_err(InternalError, |e| {
-                    format!("Failed to create server listener config: {e}")
-                })
-                .unwrap();
+        let builder =
+            ServerConfig::builder_with_protocol_versions(&[&version::TLS12, &version::TLS13]);
+        let builder = if let Some(root_cert_path) = self.root_cert_path {
+            let Ok(Some(certs)) = load_certs(&root_cert_path) else {
+                panic!(
+                    "Failed to load provided root certificates \"{}\".",
+                    root_cert_path
+                )
+            };
+
+            let mut root_store = pingora_rustls::RootCertStore::empty();
+            for cert in certs {
+                root_store.add(cert);
+            }
+
+            let cert_verifier = pingora_rustls::WebPkiClientVerifier::builder(root_store.into())
+                .build()
+                .expect("Failed to build pki client verifier");
+            builder.with_client_cert_verifier(cert_verifier)
+        } else {
+            builder.with_no_client_auth()
+        };
+
+        let mut config = builder
+            .with_single_cert(certs, key)
+            .explain_err(InternalError, |e| {
+                format!("Failed to create server listener config: {e}")
+            })
+            .unwrap();
 
         if let Some(alpn_protocols) = self.alpn_protocols {
             config.alpn_protocols = alpn_protocols;
@@ -92,6 +114,19 @@ impl TlsSettings {
             alpn_protocols: None,
             cert_path: cert_path.to_string(),
             key_path: key_path.to_string(),
+            root_cert_path: None,
+        })
+    }
+
+    pub fn with_root(&self, root_cert_path: &str) -> Result<Self>
+    where
+        Self: Sized,
+    {
+        Ok(TlsSettings {
+            alpn_protocols: None,
+            cert_path: self.cert_path.clone(),
+            key_path: self.key_path.clone(),
+            root_cert_path: Some(root_cert_path.to_string()),
         })
     }
 

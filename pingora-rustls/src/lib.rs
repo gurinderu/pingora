@@ -24,6 +24,7 @@ use std::path::Path;
 use log::warn;
 pub use no_debug::{Ellipses, NoDebug, WithTypeInfo};
 use pingora_error::{Error, ErrorType, OrErr, Result};
+pub use rustls::server::WebPkiClientVerifier;
 pub use rustls::{version, ClientConfig, RootCertStore, ServerConfig, Stream};
 pub use rustls_native_certs::load_native_certs;
 use rustls_pemfile::Item;
@@ -130,6 +131,28 @@ pub fn load_certs_and_key_files<'a>(
 
     if let (Some(private_key), false) = (private_key_opt, certs.is_empty()) {
         Ok(Some((certs, private_key)))
+    } else {
+        Ok(None)
+    }
+}
+
+/// Load the certificates and private key files
+pub fn load_certs<'a>(cert: &str) -> Result<Option<Vec<CertificateDer<'a>>>> {
+    let certs_file = load_pem_file(cert)?;
+
+    let certs = certs_file
+        .into_iter()
+        .filter_map(|item| {
+            if let Item::X509Certificate(cert) = item {
+                Some(cert)
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>();
+
+    if certs.is_empty() {
+        Ok(Some(certs))
     } else {
         Ok(None)
     }
