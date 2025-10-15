@@ -151,7 +151,7 @@ pub fn load_certs<'a>(cert: &str) -> Result<Option<Vec<CertificateDer<'a>>>> {
         })
         .collect::<Vec<_>>();
 
-    if certs.is_empty() {
+    if !certs.is_empty() {
         Ok(Some(certs))
     } else {
         Ok(None)
