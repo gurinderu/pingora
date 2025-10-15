@@ -103,15 +103,20 @@ pub struct HttpProxy<SV> {
 }
 
 impl<SV> HttpProxy<SV> {
-    fn new(inner: SV, conf: Arc<ServerConf>) -> Self {
+    fn new_with_server_conf(inner: SV, conf: Arc<ServerConf>) -> Self {
+        let connector_options = ConnectorOptions::from_server_conf(&conf);
+        Self::new(inner, connector_options, conf.max_retries)
+    }
+
+    fn new(inner: SV, connector_options: ConnectorOptions, max_retries: usize) -> Self {
         HttpProxy {
             inner,
-            client_upstream: Connector::new(Some(ConnectorOptions::from_server_conf(&conf))),
+            client_upstream: Connector::new(Some(connector_options)),
             shutdown: Notify::new(),
             server_options: None,
             h2_options: None,
             downstream_modules: HttpModules::new(),
-            max_retries: conf.max_retries,
+            max_retries,
         }
     }
 
@@ -919,7 +924,7 @@ pub fn http_proxy_service_with_name<SV>(
 where
     SV: ProxyHttp,
 {
-    let mut proxy = HttpProxy::new(inner, conf.clone());
+    let mut proxy = HttpProxy::new_with_server_conf(inner, conf.clone());
     proxy.handle_init_modules();
     Service::new(name.to_string(), proxy)
 }
