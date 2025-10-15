@@ -217,6 +217,14 @@ impl Backends {
             .map_or(self.health_check.is_none(), |h| h.ready())
     }
 
+    pub fn mark_unhealth(&self, backend: &Backend){
+        self.health
+            .load()
+            .get(&backend.hash_key())
+            .map(|h| h.mark_unhealth());
+    }
+
+
     /// Manually set if a [Backend] is ready to serve traffic.
     ///
     /// This method does not override the health of the backend. It is meant to be used

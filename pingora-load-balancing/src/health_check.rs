@@ -332,6 +332,16 @@ impl Health {
         h.healthy && h.enabled
     }
 
+    pub fn mark_unhealth(&self) {
+        let h = self.0.load();
+        if h.healthy != false {
+            // clone the inner
+            let mut new_health = (**h).clone();
+            new_health.healthy = false;
+            self.0.store(Arc::new(new_health));
+        };
+    }
+
     pub fn enable(&self, enabled: bool) {
         let h = self.0.load();
         if h.enabled != enabled {
