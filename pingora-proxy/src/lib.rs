@@ -913,11 +913,25 @@ pub fn http_proxy_service_with_config<SV>(
 where
     SV: ProxyHttp,
 {
+    http_proxy_service_with_config_and_name(conf, inner, "Pingora HTTP Proxy Service")
+}
+
+/// Create a [Service] from the user implemented [ProxyHttp].
+///
+/// The returned [Service] can be hosted by a [pingora_core::server::Server] directly.
+pub fn http_proxy_service_with_config_and_name<SV>(
+    conf: &Arc<ServerConf>,
+    inner: SV,
+    name: &str,
+) -> Service<HttpProxy<SV>>
+where
+    SV: ProxyHttp,
+{
     http_proxy_service_with_name(
         inner,
         ConnectorOptions::from_server_conf(conf),
         conf.max_retries,
-        "Pingora HTTP Proxy Service",
+        name,
     )
 }
 
