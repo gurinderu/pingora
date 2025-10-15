@@ -906,25 +906,53 @@ use pingora_core::services::listening::Service;
 /// Create a [Service] from the user implemented [ProxyHttp].
 ///
 /// The returned [Service] can be hosted by a [pingora_core::server::Server] directly.
-pub fn http_proxy_service<SV>(conf: &Arc<ServerConf>, inner: SV) -> Service<HttpProxy<SV>>
+pub fn http_proxy_service_with_config<SV>(
+    conf: &Arc<ServerConf>,
+    inner: SV,
+) -> Service<HttpProxy<SV>>
 where
     SV: ProxyHttp,
 {
-    http_proxy_service_with_name(conf, inner, "Pingora HTTP Proxy Service")
+    http_proxy_service_with_name(
+        inner,
+        ConnectorOptions::from_server_conf(conf),
+        conf.max_retries,
+        "Pingora HTTP Proxy Service",
+    )
+}
+
+/// Create a [Service] from the user implemented [ProxyHttp].
+///
+/// The returned [Service] can be hosted by a [pingora_core::server::Server] directly.
+pub fn http_proxy_service<SV>(
+    inner: SV,
+    connector_options: ConnectorOptions,
+    max_retries: usize,
+) -> Service<HttpProxy<SV>>
+where
+    SV: ProxyHttp,
+{
+    http_proxy_service_with_name(
+        inner,
+        connector_options,
+        max_retries,
+        "Pingora HTTP Proxy Service",
+    )
 }
 
 /// Create a [Service] from the user implemented [ProxyHttp].
 ///
 /// The returned [Service] can be hosted by a [pingora_core::server::Server] directly.
 pub fn http_proxy_service_with_name<SV>(
-    conf: &Arc<ServerConf>,
     inner: SV,
+    connector_options: ConnectorOptions,
+    max_retries: usize,
     name: &str,
 ) -> Service<HttpProxy<SV>>
 where
     SV: ProxyHttp,
 {
-    let mut proxy = HttpProxy::new_with_server_conf(inner, conf.clone());
+    let mut proxy = HttpProxy::new(inner, connector_options, max_retries);
     proxy.handle_init_modules();
     Service::new(name.to_string(), proxy)
 }
