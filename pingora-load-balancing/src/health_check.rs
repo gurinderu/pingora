@@ -333,13 +333,7 @@ impl Health {
     }
 
     pub fn mark_unhealth(&self) {
-        let h = self.0.load();
-        if h.healthy != false {
-            // clone the inner
-            let mut new_health = (**h).clone();
-            new_health.healthy = false;
-            self.0.store(Arc::new(new_health));
-        };
+        self.observe_health(false, 0);
     }
 
     pub fn enable(&self, enabled: bool) {
